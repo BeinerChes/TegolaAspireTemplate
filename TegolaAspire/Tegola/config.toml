@@ -1,0 +1,52 @@
+[webserver]
+port = ":80"
+
+[cache]
+type="file"             # cache type
+basepath="/tmp/tegola"  # cache specific config
+
+[[providers]]
+name = "local"
+type = "postgis"
+
+# {protocol}://{user}:{password}@{host}:{port}/{database}?{options}=
+
+uri="postgres://postgres:postgres@host.docker.internal:5432/postgres?sslmode=prefer&pool_max_conns=10"
+
+srid = 3857       
+
+[[providers.layers]]
+name = "plots"
+  geometry_fieldname = "geom" 
+  geometry_type = "point"
+  id_fieldname = "id_as_int"
+  sql = """
+    SELECT 
+        ST_AsMVTGeom(
+            geom_3857, 
+            !BBOX!,
+            4096, 0, false
+        ) AS geom, 
+        abs(hashtext(id::text)) AS id_as_int
+    FROM 
+        (
+            SELECT 
+                geometry as geom_3857, 
+                id
+            FROM 
+                public.cdfw_spotted_owls
+            WHERE
+                geometry && !BBOX!
+        ) as q
+    WHERE 
+        geom_3857 && !BBOX!
+    """
+
+[[maps]]
+name = "almanor"
+center = [-120.87999368056067, 40.08124086508574, 11.0] # Set the center of the map to your area of interest
+
+  [[maps.layers]]
+  provider_layer = "local.plots"
+  min_zoom = 1
+  max_zoom = 20
